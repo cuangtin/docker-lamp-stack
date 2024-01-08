@@ -1,0 +1,10 @@
+defaults
+tls off
+
+## Mail Account ##
+account mail
+host mail
+port 587
+from mail@mail.com
+
+account default: mail

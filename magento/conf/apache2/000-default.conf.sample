@@ -1,0 +1,39 @@
+<VirtualHost *:80>
+        ServerName adminer.wsl2.net
+        ServerAdmin webmaster@localhost
+        DocumentRoot /var/www/html/adminer
+        <Directory /var/www/html/adminer>
+            AllowOverride All
+            Require all granted
+        </Directory>
+        <FilesMatch \.php$>
+            SetHandler 'proxy:unix:/var/run/php/php8.2/php-fpm.sock|fcgi://php82/'
+            # SetHandler 'proxy:unix:/var/run/php/php8.1/php-fpm.sock|fcgi://php81/'
+            # SetHandler 'proxy:unix:/var/run/php/php7.4/php-fpm.sock|fcgi://php74/'
+            # SetHandler 'proxy:unix:/var/run/php/php7.3/php-fpm.sock|fcgi://php73/'
+            # SetHandler 'proxy:unix:/var/run/php/php7.2/php-fpm.sock|fcgi://php72/'
+            # SetHandler 'proxy:unix:/var/run/php/php7.1/php-fpm.sock|fcgi://php71/'
+        </FilesMatch>
+</VirtualHost>
+
+Varnish
+<VirtualHost *:80>
+    ServerName _
+    ProxyPreserveHost On 
+    ProxyPass / http://varnish:80/ 
+    ProxyPassReverse / http://varnish:80/ 
+</VirtualHost>
+<VirtualHost *:8080>
+    ServerName _
+    DocumentRoot /var/www/html/code
+    <Directory /var/www/html/code>
+        Options Indexes FollowSymLinks MultiViews 
+        Require all granted
+        AllowOverride All 
+        Order allow,deny 
+        Allow from all
+    </Directory> 
+    <FilesMatch \.php$>
+            SetHandler 'proxy:unix:/var/run/php/php8.1/php-fpm.sock|fcgi://php81/'
+    </FilesMatch>
+</VirtualHost>

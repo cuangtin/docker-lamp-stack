@@ -1,0 +1,396 @@
+version: '3'
+services:
+    apache2:
+        command: >
+            bash -c "a2enmod headers rewrite proxy proxy_http proxy_balancer proxy_ajp proxy_wstunnel proxy_fcgi ssl setenvif && apache2-foreground"
+        image: ubuntu/apache2:latest
+        environment:
+            - APACHE_RUN_USER=www-data
+            - APACHE_RUN_GROUP=www-data
+        networks:
+            - internal
+        volumes:
+            - ./conf/apache2/000-default.conf:/etc/apache2/sites-available/000-default.conf
+            - ./conf/apache2/default-ssl.conf:/etc/apache2/sites-enabled/000-default-ssl.conf
+            - ./conf/apache2/security.conf:/etc/apache2/conf-available/security.conf
+            - ./conf/apache2/ports.conf:/etc/apache2/ports.conf
+            - ./cert:/etc/cert:ro
+        volumes_from:
+            - codedata
+            - phpsocket
+        restart: always
+        ports:
+            - 443:443
+            - 80:80
+            - 8080:8080
+        container_name: apache2
+        logging:
+            options:
+                max-size: 10m
+    # nginx:
+    #     image: rogerdz/nginx
+    #     networks:
+    #         - internal
+    #     environment:
+    #         SET_REAL_IP_FRON: 0.0.0.0/0
+    #         REAL_IP_HEADER: X-Forwarded-For
+    #         USER: www-data
+    #         NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE: 1
+    #     volumes:
+    #         - ./conf/nginx/nginx-sites.conf:/etc/nginx/templates/default.conf.template
+    #         # - ./conf/nginx/nginx-magento.conf:/etc/nginx/snippets/nginx-magento.conf
+    #         # - ./conf/nginx/varnish.conf:/etc/nginx/conf.d/varnish.conf #setup varnish
+    #     volumes_from:
+    #         - codedata
+    #         - phpsocket
+    #     container_name: nginx
+    #     logging:
+    #         options:
+    #             max-size: 10m
+    sshd:
+        image: rogerdz/sshd-php
+        labels:
+            - sshd-env=true
+        environment:
+            - DISABLE_ROOT_LOGIN=1
+            - AllowTcpForwarding=1
+            - DEFAULT_PHP_VERSION=8.1
+            - COMPOSER_VERSION= ${COMPOSER_VERSION}
+            # - BLOCK_OUTBOUND=${BLOCK_OUTBOUND}
+        restart: always
+        ports:
+            - 22:22
+            - 8090:8090 #socket port
+        volumes:
+            - ./conf/php/php-custom.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+            - ./conf/php/smtp:/etc/msmtprc:ro
+            - cron_data:/var/spool/cron
+            - ./motd:/etc/motd:ro
+            - ./data/sh:/home/devbss/sh
+        volumes_from:
+            - codedata
+            - phpsocket
+        networks:
+            - internal
+        hostname: sshd-container
+        container_name: sshd
+        cap_add:
+            - NET_ADMIN
+        logging:
+            options:
+                max-size: 10m
+    codedata:
+        image: tianon/true
+        volumes:
+            - /var/www/html:/var/www/html:cached
+            - ./custom_etc:/custom_etc #for backup
+        networks:
+            - internal
+        container_name: codedata
+    phpsocket:
+        image: tianon/true
+        volumes:
+            - fpm_sock71:/var/run/php/7.1
+            - fpm_sock72:/var/run/php/7.2
+            - fpm_sock73:/var/run/php/7.3
+            - fpm_sock74:/var/run/php/7.4
+            - fpm_sock80:/var/run/php/8.0
+            - fpm_sock81:/var/run/php/8.1
+            - fpm_sock82:/var/run/php/8.2
+            - ./conf/php/smtp:/etc/msmtprc:cached
+        networks:
+            - internal
+        container_name: phpsocket
+    php8.2:
+        image: rogerdz/php-fpm:8.2
+        networks:
+            - internal
+        environment:
+            PHP_EXTENSIONS_ENABLE: ${PHP_EXTENSIONS_ENABLE}
+            ENV_PHP: production
+            FPM_LISTEN_SOCKET: 1
+        volumes:
+            - ./data/logs:/var/www/html/logs
+            - ./conf/php/php-custom.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+            - ./conf/php/smtp:/etc/msmtprc:ro
+            - ./conf/php/8.2/fpm-www.conf:/usr/local/etc/php-fpm.d/www.conf
+            - fpm_sock82:/var/run/php
+        volumes_from:
+            - codedata
+        cap_add:
+            - SYS_PTRACE
+        restart: always
+        container_name: php82
+        logging:
+            options:
+                max-size: 10m
+    php8.1:
+        image: rogerdz/php-fpm:8.1
+        networks:
+            - internal
+        environment:
+            PHP_EXTENSIONS_ENABLE: ${PHP_EXTENSIONS_ENABLE}
+            ENV_PHP: production
+            FPM_LISTEN_SOCKET: 1
+        volumes:
+            - ./data/logs:/var/www/html/logs
+            - ./conf/php/php-custom.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+            - ./conf/php/smtp:/etc/msmtprc:ro
+            - ./conf/php/8.1/fpm-www.conf:/usr/local/etc/php-fpm.d/www.conf
+            - fpm_sock81:/var/run/php
+        volumes_from:
+            - codedata
+        cap_add:
+            - SYS_PTRACE
+        restart: always
+        container_name: php81
+        logging:
+            options:
+                max-size: 10m
+    php8.0:
+        image: rogerdz/php-fpm:8.0
+        networks:
+            - internal
+        environment:
+            PHP_EXTENSIONS_ENABLE: ${PHP_EXTENSIONS_ENABLE}
+            ENV_PHP: production
+            FPM_LISTEN_SOCKET: 1
+        volumes:
+            - ./data/logs:/var/www/html/logs
+            - ./conf/php/php-custom.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+            - ./conf/php/smtp:/etc/msmtprc:ro
+            - ./conf/php/8.0/fpm-www.conf:/usr/local/etc/php-fpm.d/www.conf
+            - fpm_sock80:/var/run/php
+        volumes_from:
+            - codedata
+        cap_add:
+            - SYS_PTRACE
+        restart: always
+        container_name: php80
+        logging:
+            options:
+                max-size: 10m
+    php7.4:
+        image: rogerdz/php-fpm:7.4
+        networks:
+            - internal
+        environment:
+            PHP_EXTENSIONS_ENABLE: ${PHP_EXTENSIONS_ENABLE}
+            ENV_PHP: production
+            FPM_LISTEN_SOCKET: 1
+        volumes:
+            - ./conf/php/php-custom.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+            - ./data/logs:/var/www/html/logs
+            - ./conf/php/smtp:/etc/msmtprc:ro
+            - ./conf/php/7.4/fpm-www.conf:/usr/local/etc/php-fpm.d/www.conf
+            - fpm_sock74:/var/run/php
+        volumes_from:
+            - codedata
+        cap_add:
+            - SYS_PTRACE
+        restart: always
+        container_name: php74
+        logging:
+            options:
+                max-size: 10m
+    php7.3:
+        image: rogerdz/php-fpm:7.3
+        networks:
+            - internal
+        environment:
+            PHP_EXTENSIONS_ENABLE: ${PHP_EXTENSIONS_ENABLE}
+            ENV_PHP: production
+            FPM_LISTEN_SOCKET: 1
+        volumes:
+            - ./data/logs:/var/www/html/logs
+            - ./conf/php/7.3/fpm-www.conf:/usr/local/etc/php-fpm.d/www.conf
+            - fpm_sock73:/var/run/php
+        volumes_from:
+            - codedata
+        cap_add:
+            - SYS_PTRACE
+        restart: always
+        container_name: php73
+        logging:
+            options:
+                max-size: 10m
+    php7.2:
+        image: rogerdz/php-fpm:7.2
+        networks:
+            - internal
+        environment:
+            PHP_EXTENSIONS_ENABLE: ${PHP_EXTENSIONS_ENABLE}
+            ENV_PHP: production
+            FPM_LISTEN_SOCKET: 1
+        volumes:
+            - ./data/logs:/var/www/html/logs
+            - ./conf/php/7.2/fpm-www.conf:/usr/local/etc/php-fpm.d/www.conf
+            - fpm_sock72:/var/run/php
+        volumes_from:
+            - codedata
+        cap_add:
+            - SYS_PTRACE
+        restart: always
+        container_name: php72
+        logging:
+            options:
+                max-size: 10m
+    php7.1:
+        image: rogerdz/php-fpm:7.1
+        networks:
+            - internal
+        environment:
+            PHP_EXTENSIONS_ENABLE: ${PHP_EXTENSIONS_ENABLE}
+            ENV_PHP: production
+            FPM_LISTEN_SOCKET: 1
+        volumes:
+            - ./data/logs:/var/www/html/logs
+            - ./conf/php/7.1/fpm-www.conf:/usr/local/etc/php-fpm.d/www.conf
+            - fpm_sock71:/var/run/php
+        volumes_from:
+            - codedata
+        cap_add:
+            - SYS_PTRACE
+        restart: always
+        container_name: php71
+        logging:
+            options:
+                max-size: 10m
+    # mariadb104:
+    #     image: mariadb:10.4
+    #     environment:
+    #         - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    #         - MYSQL_ALLOW_EMPTY_PASSWORD=no
+    #         - MYSQL_USER=${MYSQL_USER}
+    #         - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    #         - MYSQL_DATABASE=${MYSQL_DATABASE}
+    #     volumes:
+    #         - ./conf/mariadb/104/mysql.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    #         - ./data/logs/mysql:/var/www/html/logs/mysql:delegated
+    #         - db_data:/var/lib/mysql
+    #     command: --default-authentication-plugin=mysql_native_password
+    #     networks:
+    #         - internal
+    #     restart: always
+    #     container_name: mariadb
+    #     logging:
+    #         options:
+    #             max-size: 10m
+    mysql57:
+        image: mysql:5.7.40
+        volumes:
+            - ./conf/mysql/conf.d:/etc/my.cnf.d
+            - ./data/logs/mysql:/var/www/html/logs/mysql
+            - mysql_data:/var/lib/mysql
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+        networks:
+            - internal
+        container_name: mysql57
+        
+        logging:
+            options:
+                max-size: 10m
+    elasticsearch717:
+        image: rogerdz/elasticsearch:7.17
+        environment:
+            - ES_JAVA_OPTS=${ES_JAVA_OPTS}
+            - cluster.routing.allocation.disk.watermark.low=2gb
+            - cluster.routing.allocation.disk.watermark.high=1gb
+            - cluster.routing.allocation.disk.watermark.flood_stage=512mb
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+        volumes:
+            - elasticsearch717_data:/usr/share/elasticsearch/data
+        networks:
+            - internal
+        restart: always
+        init: true
+        container_name: elasticsearch717
+    elasticsearch68:
+        image: rogerdz/elasticsearch:6.8
+        environment:
+            - ES_JAVA_OPTS=${ES_JAVA_OPTS}
+            - cluster.routing.allocation.disk.watermark.low=2gb
+            - cluster.routing.allocation.disk.watermark.high=1gb
+            - cluster.routing.allocation.disk.watermark.flood_stage=512mb
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+        volumes:
+            - elasticsearch68_data:/usr/share/elasticsearch/data
+        networks:
+            - internal
+        
+        init: true
+        container_name: elasticsearch68
+    redis:
+        image: redis:6.0
+        command: redis-server ${REDIS_CONFIG}
+        networks:
+            - internal
+        volumes:
+            - redis_data:/data
+        restart: always
+        container_name: redis
+        logging:
+            options:
+                max-size: 10m
+    varnish:
+        image: varnish:6.5
+        platform: linux/amd64
+        environment:
+            - VARNISH_SIZE=256M
+        command: -p http_resp_hdr_len=65536 -p http_resp_size=98304 -p workspace_backend=256k -p workspace_client=256k
+        networks:
+            - internal
+        volumes:
+            - ./conf/varnish/varnish.vcl:/etc/varnish/default.vcl:ro
+        restart: always
+        container_name: varnish
+        logging:
+            options:
+                max-size: 10m
+    opensearch:
+        image: rogerdz/opensearch:2.5
+        
+        environment:
+            - node.name=opensearch
+            - discovery.type=single-node
+            - cluster.routing.allocation.disk.watermark.low=2gb
+            - cluster.routing.allocation.disk.watermark.high=1gb
+            - cluster.routing.allocation.disk.watermark.flood_stage=512mb
+            - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+        volumes:
+            - opensearch_data:/usr/share/opensearch/data
+        networks:
+            - internal
+        init: true
+        container_name: opensearch
+        logging:
+            options:
+                max-size: 10m
+networks:
+    internal:
+volumes:
+    fpm_sock82:
+    fpm_sock81:
+    fpm_sock80:
+    fpm_sock74:
+    fpm_sock73:
+    fpm_sock72:
+    fpm_sock71:
+    elasticsearch717_data:
+    elasticsearch68_data:
+    mysql_data:
+    db_data:
+    redis_data:
+    cron_data:
+    opensearch_data:

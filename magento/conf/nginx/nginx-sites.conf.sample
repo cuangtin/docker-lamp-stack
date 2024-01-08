@@ -1,0 +1,41 @@
+upstream fastcgi_backend82 {
+    server  unix:/var/run/php/php8.2/php-fpm.sock;
+}
+upstream fastcgi_backend {
+    server  unix:/var/run/php/php8.1/php-fpm.sock;
+}
+upstream fastcgi_backend74 {
+    server  unix:/var/run/php/php7.4/php-fpm.sock;
+}
+upstream fastcgi_backend73 {
+    server  unix:/var/run/php/php7.3/php-fpm.sock;
+}
+upstream fastcgi_backend72 {
+    server  unix:/var/run/php/php7.2/php-fpm.sock;
+}
+upstream fastcgi_backend71 {
+    server  unix:/var/run/php/php7.1/php-fpm.sock;
+}
+
+map $http_user_agent $bad_bot {
+  default 0;
+   ~(?i)(Ahrefsbot|Baiduspider|Yandex|YandexBot|Abonti|ShopWiki|FatBot|UnisterBot|Baidu|AspiegelBot|MJ12bot|SemrushBot|Dotbot|360Spider|YoudaoBot|PetalBot) 1;
+   ~(?i)(BLEXBot|Twengabot|httrack|WinHTTrack|htmlparser|urllib|Zeus|scan|email|WebCollector|WebCopier|WebCopy|webcraw|LWP::simple|Havij) 1;
+   ~(?i)(TencentTraveler|serpstatbot|Mb2345Browser|LieBaoFast|Gigabot|MicroMessenger|Kinza|Bytespider|Sogou|OPPO\sA33|spaziodati) 1;
+   ~(?i)(AdsTxtCrawler|DataForSeoBot|crawl|GeedoBot|Neevabot) 1;
+}
+
+server {
+    listen 81;
+    server_name magento.wsl2.net;
+
+
+    if ($bad_bot = 1) {
+        return 403;
+    }
+
+    add_header 'Content-Security-Policy' 'upgrade-insecure-requests';
+    
+    set $MAGE_ROOT /var/www/html/magento;
+    include /var/www/html/magento/nginx.conf.sample;
+}

@@ -1,0 +1,12 @@
+<VirtualHost *:443>
+    DocumentRoot /var/www/html
+    ServerName devm2.bsscommerce.com
+    <Directory /var/www/html>
+        AllowOverride All
+    </Directory>
+    SSLCertificateFile /etc/cert/fullchain4.pem
+    SSLCertificateKeyFile /etc/cert/privkey4.pem
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:/var/run/php/php8.1/php-fpm.sock|fcgi://php81/"
+    </FilesMatch>
+</VirtualHost>
